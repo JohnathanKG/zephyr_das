@@ -1,7 +1,9 @@
-# Host daslang plugin. Generated C++ lives in ../binds (gitignored).
-#   cmake -S bind -B build/host && cmake --build build/host
-# Regen bindings first if binds/ is empty:
-#   cmake --build build/host --target regen-binds
+# Host daslang plugin (macOS/Linux dylib). Invoked from projects/app/CMakeLists.txt
+# after Zephyr has generated syscall_list.h. Nested cmake uses the host compiler,
+# not the Zephyr ARM toolchain.
+#
+# Standalone (only after a west build has emitted generated headers):
+#   daslang bind_zephyr.das && cmake -S bind_gen -B bind_gen/build && cmake --build bind_gen/build
 cmake_minimum_required(VERSION 3.16)
 project(zephyr_das)
 
@@ -21,7 +23,7 @@ file(GLOB DAS_ZEPHYR_FUNC_SRCS CONFIGURE_DEPENDS
 )
 
 add_library(zephyr_das SHARED
-	"${CMAKE_CURRENT_SOURCE_DIR}/zephyr_das.main.cpp"
+	"${STMRENODE_BINDS}/zephyr_das.main.cpp"
 	"${STMRENODE_BINDS}/zephyr_das.cpp"
 	"${STMRENODE_BINDS}/zephyr_host_stubs.gen.cpp"
 	${DAS_ZEPHYR_FUNC_SRCS}

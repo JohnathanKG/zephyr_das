@@ -52,9 +52,49 @@ def find_repo_root : string {
     return dir_name(dir_name(here))
 }
 
-def require_env(name, fallback : string) {
-    let v = get_env_variable(name)
-    return empty(v) ? fallback : v
+def is_zephyr_sdk(path : string) {
+    return stat("{path}/gnu/arm-zephyr-eabi/arm-zephyr-eabi").is_valid
+}
+
+def find_zephyr_sdk : string {
+    let env = get_env_variable("ZEPHYR_SDK_INSTALL_DIR")
+    if (!empty(env)) {
+        if (!is_zephyr_sdk(env)) {
+            panic("ZEPHYR_SDK_INSTALL_DIR={env} has no gnu/arm-zephyr-eabi toolchain")
+        }
+        return env
+    }
+    let home = get_env_variable("HOME")
+    var search <- array<string>(
+        "/usr",
+        "/usr/local",
+        "/opt",
+        home,
+        "{home}/.local",
+        "{home}/.local/opt",
+        "{home}/bin"
+    )
+    var found = ""
+    for (base in search) {
+        if (!stat(base).is_valid) {
+            continue
+        }
+        if (is_zephyr_sdk(base)) {
+            found = base
+        }
+        dir(base) $(name) {
+            if (name |> starts_with("zephyr-sdk")) {
+                let p = "{base}/{name}"
+                if (is_zephyr_sdk(p)) {
+                    found = p
+                }
+            }
+        }
+    }
+    if (empty(found)) {
+        panic("ZEPHYR_SDK_INSTALL_DIR is not set and no Zephyr SDK with gnu/arm-zephyr-eabi was found")
+    }
+    return found
 }
 
 def find_clang_resource_dir : string {
@@ -135,10 +175,10 @@ class ZephyrBind : CppGenBind {
             return true
         }
         // SkipFunctionBodies makes every fn look like a prototype; only stub
-        // non-static functions from Zephyr (not bind/ extras).
+        // non-static functions from Zephyr (not bind_gen extras).
         let loc = clang_getCursorLocationFileName(c)
         let sc = clang_Cursor_getStorageClass(c)
-        if (sc != CX_StorageClass.Static && !(loc |> starts_with("{repo_root}/bind/"))) {
+        if (sc != CX_StorageClass.Static && !(loc |> starts_with("{repo_root}/bind_gen/"))) {
             stub_needed[function_name] = true
         }
         bound_func_names[function_name] = true
@@ -159,7 +199,7 @@ class ZephyrBind : CppGenBind {
         if (fname |> starts_with("{repo_root}/build/zephyr/")) {
             return false
         }
-        if (fname |> starts_with("{repo_root}/bind/")) {
+        if (fname |> starts_with("{repo_root}/bind_gen/")) {
             return false
         }
         if (fname |> starts_with(bind_root)) {
@@ -197,7 +237,7 @@ def write_umbrella(bind_root : string; headers : array<string>) {
         text += "#include <{h}>\n"
     }
     text += "#include \"extras.h\"\n"
-    fwrite("{bind_root}/zephyr_api.h", text)
+    fwrite("{bind_root}/../bindings/zephyr_api.h", text)
 }
 
 def write_macro_constants(root, bind_root : string; headers : array<string>) {
@@ -238,7 +278,7 @@ def write_macro_constants(root, bind_root : string; headers : array<string>) {
             return true
         }
     }
-    fwrite("{bind_root}/zephyr_das.const.inc", text)
+    fwrite("{bind_root}/../bindings/zephyr_das.const.inc", text)
 }
 
 def clang_args(root, sdk, clang_res : string; inc_lines : array<string>) : array<string> {
@@ -273,15 +313,25 @@ def clang_args(root, sdk, clang_res : string; inc_lines : array<string>) : array
     return <- args
 }
 
+def require_zephyr_generated(root : string) {
+    let syscall_list = "{root}/build/zephyr/include/generated/zephyr/syscall_list.h"
+    let heap_constants = "{root}/build/zephyr/include/generated/zephyr/heap_constants.h"
+    if (!stat(syscall_list).is_valid || !stat(heap_constants).is_valid) {
+        panic(
+            "Zephyr has not generated syscall_list.h / heap_constants.h yet.\n" +
+            "west build produces those headers first, then runs this binder.\n" +
+            "Do not invoke bind_zephyr.das before that step."
+        )
+    }
+}
+
 [export]
 def main {
     let root = find_repo_root()
     let bind_gen_dir = "{root}/bind_gen"
     let bindings = "{root}/bindings"
-    let sdk = require_env("ZEPHYR_SDK_INSTALL_DIR", "")
-    if (empty(sdk)) {
-        panic("ZEPHYR_SDK_INSTALL_DIR is not set")
-    }
+    require_zephyr_generated(root)
+    let sdk = find_zephyr_sdk()
     let headers <- read_lines("{bind_gen_dir}/headers.txt")
     let inc_lines <- read_lines("{bind_gen_dir}/include_dirs.txt")
     write_umbrella(bind_gen_dir, headers)

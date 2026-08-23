@@ -34,7 +34,7 @@ function(stmrenode_zephyr_host_setup target)
 	stmrenode_read_bind_paths(_inc _sys _im)
 	target_include_directories(${target} PRIVATE
 		"${STMRENODE_BIND}/host_compat"
-		"${STMRENODE_ROOT}/binds"
+		"${STMRENODE_ROOT}/bindings"
 		"${STMRENODE_BIND}"
 	)
 	target_include_directories(${target} SYSTEM PRIVATE ${_inc} ${_sys})

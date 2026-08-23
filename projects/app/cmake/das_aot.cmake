@@ -9,10 +9,20 @@ endif()
 
 file(READ "${DAS_CPP}" src)
 if(NOT src MATCHES "__init_script\\(&context")
-	string(REPLACE
-		"context.runInitScript();"
-		"context.runInitScript(); __init_script(&context, true);"
-		src "${src}")
+	if(src MATCHES "context\\.runInitScript\\(\\);")
+		string(REPLACE
+			"context.runInitScript();"
+			"context.runInitScript(); __init_script(&context, true);"
+			src "${src}")
+	else()
+		# aot_standalone.das only emits the ctor closer when the program has
+		# AOT functions. Empty scripts (no runInitScript) leave Standalone()
+		# unclosed, so later namespace reopenings fail to compile.
+		string(REPLACE
+			"#ifdef STANDALONE_CONTEXT_TESTS"
+			"    context.runInitScript(); __init_script(&context, true);\n}\n#ifdef STANDALONE_CONTEXT_TESTS"
+			src "${src}")
+	endif()
 	file(WRITE "${DAS_CPP}" "${src}")
 endif()
 
