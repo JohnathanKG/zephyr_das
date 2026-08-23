@@ -1,0 +1,32 @@
+logFile $ORIGIN/../hello_world-renode.log True
+
+
+$name?="nucleo_f446re"
+$bin?=@../build/zephyr/zephyr.elf
+$repl?=@main.repl
+
+using sysbus
+mach create $name
+
+machine LoadPlatformDescription $repl
+machine EnableProfiler $ORIGIN/metrics.dump
+
+showAnalyzer usart2
+
+usart2 RecordToAsciinema $ORIGIN/hello_world-asciinema
+set osPanicHook
+"""
+self.ErrorLog("OS Panicked")
+"""
+cpu0 AddSymbolHook "z_fatal_error" $osPanicHook
+
+
+macro reset
+"""
+    sysbus LoadELF $bin 
+    cpu0 VectorTableOffset `sysbus GetSymbolAddress "_vector_table"`
+    cpu0 EnableZephyrMode
+    cpu0 EnableProfilerCollapsedStack $ORIGIN/../hello_world-profile true 62914560 maximumNestedContexts=10
+"""
+
+runMacro $reset
