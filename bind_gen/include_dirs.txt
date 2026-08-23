@@ -1,0 +1,20 @@
+# Include paths relative to the repo root. Shared by the binder and the host plugin.
+# sys:     -> -isystem
+# imacros: -> -imacros
+zephyr/include
+build/zephyr/include/generated
+zephyr/kernel/include
+zephyr/arch/arm/include
+zephyr/soc/st/stm32
+zephyr/lib/libc/picolibc/include
+zephyr/soc/st/stm32/common
+zephyr/drivers
+zephyr/soc/st/stm32/stm32f4x
+zephyr/modules/cmsis_6
+modules/hal/cmsis_6/CMSIS/Core/Include
+modules/hal/stm32/stm32cube/stm32f4xx/soc
+modules/hal/stm32/stm32cube/stm32f4xx/drivers/include
+modules/hal/stm32/stm32cube/common_ll/include
+sys:zephyr/lib/libc/common/include
+imacros:build/zephyr/include/generated/zephyr/autoconf.h
+imacros:zephyr/include/zephyr/toolchain/zephyr_stdint.h

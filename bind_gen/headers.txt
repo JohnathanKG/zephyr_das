@@ -1,0 +1,5 @@
+# Public Zephyr headers to bind. One include path per line.
+# Add a line here, then: daslang bind/bind_zephyr.das && cmake --build build/host
+zephyr/kernel.h
+zephyr/drivers/gpio.h
+zephyr/input/input.h
