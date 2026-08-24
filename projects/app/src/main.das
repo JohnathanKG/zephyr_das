@@ -32,6 +32,7 @@ def button_input_callback(evt : input_event; arg : void?) {
     if (ret < 0) {
         return;
     }
+    print("toggle led\n");
     k_msleep(1000);
     gpio_pin_toggle_dt(unsafe(addr(led)));
 }

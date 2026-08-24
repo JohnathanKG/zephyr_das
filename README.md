@@ -14,3 +14,9 @@ Go to the `zephyr_das` directory and run `west build -p -b nucleo_f446re project
 Flash your processor with `west flash` and that's it! You will have a reactive button. 
 
 TODO: Renode simulation environment instructions
+
+Renode guide:
+Install `renode` from https://github.com/renode/renode
+Run `cd renode` then `renode main.resc` (if you build from source, use `renode --ui main.resc` and you can see it react in `Sensors` view in realtime!)
+Run `sysbus.gpioc.bluebutton Toggle` once or twice (it works fine on physical MCU. I am not sure what requires once or twice button presses to enable)
+It will print `toggle led` when toggling the led! 

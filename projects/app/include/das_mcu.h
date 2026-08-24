@@ -4,6 +4,7 @@
 #include <string.h>
 #include <stddef.h>
 #include <new>
+#include <zephyr/sys/printk.h>
 
 inline void *operator new(size_t, void *p) noexcept { return p; }
 inline void operator delete(void *, void *) noexcept {}
@@ -255,7 +256,11 @@ struct FuncInfo {
 		  localCount(lc), hash(h), flags(fl), annotations(ann), annotation_count(ac) {}
 };
 
-struct LineInfo {};
+struct LineInfo {
+	static LineInfo g_LineInfoNULL;
+};
+struct LineInfoArg : LineInfo {};
+inline LineInfo LineInfo::g_LineInfoNULL{};
 class Context;
 struct SimNode;
 
@@ -403,6 +408,11 @@ public:
 	shared_ptr<das_hash_map<uint64_t, uint32_t>> tabGMnLookup;
 	shared_ptr<das_hash_map<uint64_t, uint64_t>> tabAdLookup;
 };
+
+inline void builtin_print(char *text, Context *, LineInfoArg *)
+{
+	printk("%s", text ? text : "");
+}
 
 template <typename TT>
 struct das_auto_cast {
