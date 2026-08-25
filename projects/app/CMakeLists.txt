@@ -4,9 +4,13 @@ cmake_minimum_required(VERSION 3.28.0)
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project(das_zephyr)
 
+set(DAS_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../..")
 set(DAS_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/src/main.das")
-set(DAS_BINDINGS "${CMAKE_CURRENT_SOURCE_DIR}/../../bindings")
-set(DAS_BIND_GEN "${CMAKE_CURRENT_SOURCE_DIR}/../../bind_gen")
+set(DAS_BINDINGS "${DAS_ROOT}/bindings")
+set(DAS_BIND_GEN "${DAS_ROOT}/bind_gen")
+set(DAS_CMAKE "${DAS_ROOT}/cmake")
+set(DAS_HOOKS "${DAS_ROOT}/aot_hooks")
+set(DAS_INCLUDE "${DAS_ROOT}/include")
 set(DAS_AOT "${CMAKE_BINARY_DIR}/das_aot")
 set(DAS_STUBS "${CMAKE_BINARY_DIR}/das_stubs")
 set(DAS_HOST_PLUGIN_BUILD "${CMAKE_BINARY_DIR}/bind_gen_host")
@@ -48,7 +52,6 @@ add_custom_command(
 		-G "${CMAKE_GENERATOR}"
 		"-DCMAKE_C_COMPILER=${DAS_HOST_C_COMPILER}"
 		"-DCMAKE_CXX_COMPILER=${DAS_HOST_CXX_COMPILER}"
-		"-DCMAKE_BUILD_TYPE=Release"
 	COMMAND ${CMAKE_COMMAND} --build "${DAS_HOST_PLUGIN_BUILD}"
 	DEPENDS
 		"${DAS_BIND_CPP}"
@@ -63,18 +66,18 @@ add_custom_command(
 add_custom_command(
 	OUTPUT "${DAS_AOT}/main.das.cpp" "${DAS_AOT}/main.das.h"
 	COMMAND ${CMAKE_COMMAND} -E make_directory "${DAS_AOT}" "${DAS_STUBS}"
-	COMMAND ${DASLANG} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/aot_driver.das" --
+	COMMAND ${DASLANG} "${DAS_CMAKE}/aot_driver.das" --
 		-cross_platform 1 -ctx "${DAS_SCRIPT}" "${DAS_AOT}/"
 	COMMAND ${CMAKE_COMMAND}
 		-DDAS_CPP=${DAS_AOT}/main.das.cpp
 		-DDAS_STUBS=${DAS_STUBS}
-		-P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/das_aot.cmake"
+		-P "${DAS_CMAKE}/das_aot.cmake"
 	DEPENDS
 		"${DAS_SCRIPT}"
-		"${CMAKE_CURRENT_SOURCE_DIR}/src/zephyr_hooks.das"
+		"${DAS_HOOKS}/zephyr_hooks.das"
 		"${DAS_PLUGIN}"
-		"${CMAKE_CURRENT_SOURCE_DIR}/cmake/aot_driver.das"
-		"${CMAKE_CURRENT_SOURCE_DIR}/cmake/das_aot.cmake"
+		"${DAS_CMAKE}/aot_driver.das"
+		"${DAS_CMAKE}/das_aot.cmake"
 		"${DAS_BIND_GEN}/extras.h"
 		"${DAS_BIND_GEN}/headers.txt"
 	WORKING_DIRECTORY "${DAS_BINDINGS}"
@@ -86,7 +89,7 @@ set_source_files_properties("${DAS_AOT}/main.das.cpp" PROPERTIES GENERATED TRUE)
 
 target_sources(app PRIVATE src/main.cpp "${DAS_AOT}/main.das.cpp")
 target_include_directories(app PRIVATE
-	"${CMAKE_CURRENT_SOURCE_DIR}/include"
+	"${DAS_INCLUDE}"
 	"${DAS_STUBS}"
 	"${DAS_AOT}"
 	"${DAS_BINDINGS}"
