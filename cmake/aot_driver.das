@@ -83,6 +83,14 @@ def emit_input_callbacks(output_dir, ctx_name : string; hooks : array<tuple<stri
     if (empty(header) || empty(source)) {
         panic("standalone AOT did not write {hpp} / {cpp}")
     }
+    // Standalone AOT prunes cbind modules (their fns are builtIn), so
+    // aotRequire never emits zephyr_api.h. Inject it for the firmware TU.
+    if (find(header, "zephyr_api.h") < 0) {
+        header = "#include \"zephyr_api.h\"\n" + header
+    }
+    if (find(source, "zephyr_api.h") < 0) {
+        source = "#include \"zephyr_api.h\"\n" + source
+    }
     if (find(header, INPUT_CALLBACKS_MARK) < 0) {
         if (!empty(hooks) && find(header, "zephyr/input/input.h") < 0) {
             header = "#include <zephyr/input/input.h>\n" + header

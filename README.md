@@ -1,4 +1,16 @@
-# zephyr_das
+# zephyrDas
+
+Zephyr firmware that AOTs [daslang](https://github.com/GaijinEntertainment/daScript) to C++ and links **libDaScriptNano** — a runtime with no compiler on the MCU.
+
+`west build` generates Zephyr bindings, compiles a host daslang plugin, AOTs `main.das` with [`cmake/aot_driver.das`](cmake/aot_driver.das), and links the result against nano.
+
+Tested on **nucleo_f446re** (STM32F4). Other chips need [`bindings/generator/include_dirs.txt`](bindings/generator/include_dirs.txt) retuned to that SoC.
+
+## Prerequisites
+
+- An installed **daslang SDK** (`daslang` on `PATH`, `find_package(DAS)` — typically `/usr/local`)
+- Host C/C++ compiler (used only for the daslang plugin, not the firmware)
+- Homebrew LLVM on macOS if you regenerate bindings (`CLANG_RESOURCE_DIR`, or `/opt/homebrew/opt/llvm/lib/clang`)
 
 ## Setup
 
@@ -27,44 +39,51 @@ Install the ARM Zephyr toolchain:
 west sdk install --toolchain=arm-zephyr-eabi
 ```
 
-## Generate bindings
-
-> The following is only for the `stm32f4xx` series. I have no ability to test with further microprocessors.
-> You will have to tune `bind_gen/include_dirs.txt` to your processor otherwise, but the steps are otherwise the same.
-
-```sh
-cd bind_gen
-mkdir build && cd build
-cmake -G Ninja ../
-cmake --build . -t regen-binds
-```
-
 ## Build and flash
 
-From the `zephyr_das` directory:
+From the workspace root:
 
 ```sh
-west build -p -b nucleo_f446re projects/app
+west build -p -b nucleo_f446re samples/hello_world
 west flash
 ```
 
-That's it — you will have a reactive button.
+The sample prints `hello` on the UART console and configures `led0`. Bindings and AOT run as part of this build; you do not need a separate bind step first.
+
+To add another sample, copy `samples/hello_world` and keep:
+
+```cmake
+include("${CMAKE_CURRENT_SOURCE_DIR}/../../cmake/das_firmware.cmake")
+das_zephyr_app(src/main.das src/main.cpp)
+```
+
+Set `CONFIG_REQUIRES_FULL_LIBCPP=y` in `prj.conf` (nano uses the STL).
+
+## Generate bindings (optional)
+
+West already runs the binder after Zephyr emits `syscall_list.h`. To regenerate by hand (only after a west build has produced those headers):
+
+```sh
+cd bindings/generator
+daslang bind_zephyr.das
+cmake -S . -B build && cmake --build build
+```
+
+Or, from an existing generator build directory:
+
+```sh
+cmake --build bindings/generator/build -t regen-binds
+```
 
 ## Renode simulation
 
-TODO: Renode simulation environment instructions
-
 1. Install [Renode](https://github.com/renode/renode).
-2. Run:
-  ```sh
+2. Build the sample (see above) so `build/zephyr/zephyr.elf` exists.
+3. Run:
+
+   ```sh
    cd renode
    renode main.resc
-  ```
-   If you built from source, use `renode --ui main.resc` so you can see it react in the **Sensors** view in realtime.
-3. Toggle the button:
-  ```
-   sysbus.gpioc.bluebutton Toggle
-  ```
-   Run this once or twice (it works fine on a physical MCU; I am not sure what requires one vs two button presses to enable).
+   ```
 
-It will print a minmaxheap when toggling the button.
+   If you built Renode from source, use `renode --ui main.resc`. USART2 is attached as an analyzer; you should see `hello`.

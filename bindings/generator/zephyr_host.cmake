@@ -1,6 +1,6 @@
 # Shared host-plugin include/define setup. Used by bind/CMakeLists.txt.
 get_filename_component(STMRENODE_BIND "${CMAKE_CURRENT_LIST_DIR}" ABSOLUTE)
-get_filename_component(STMRENODE_ROOT "${STMRENODE_BIND}/.." ABSOLUTE)
+get_filename_component(STMRENODE_ROOT "${STMRENODE_BIND}/../../" ABSOLUTE)
 
 if(NOT DEFINED STMRENODE_ZEPHYR_SDK)
 	set(STMRENODE_ZEPHYR_SDK "$ENV{ZEPHYR_SDK_INSTALL_DIR}")

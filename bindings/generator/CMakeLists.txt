@@ -1,9 +1,9 @@
-# Host daslang plugin (macOS/Linux dylib). Invoked from projects/app/CMakeLists.txt
+# Host daslang plugin (macOS/Linux dylib). Invoked from cmake/das_firmware.cmake
 # after Zephyr has generated syscall_list.h. Nested cmake uses the host compiler,
 # not the Zephyr ARM toolchain.
 #
 # Standalone (only after a west build has emitted generated headers):
-#   daslang bind_zephyr.das && cmake -S bind_gen -B bind_gen/build && cmake --build bind_gen/build
+#   daslang bind_zephyr.das && cmake -S bindings/generator -B bindings/generator/build && cmake --build bindings/generator/build
 cmake_minimum_required(VERSION 3.16)
 project(zephyr_das)
 
@@ -41,7 +41,7 @@ if(NOT CMAKE_CONFIGURATION_TYPES)
 	unset(_need)
 endif()
 
-set(STMRENODE_BINDS "${STMRENODE_ROOT}/bindings")
+set(STMRENODE_BINDS "${STMRENODE_ROOT}/bindings/generated")
 file(MAKE_DIRECTORY "${STMRENODE_BINDS}")
 configure_file(
 	"${CMAKE_CURRENT_SOURCE_DIR}/das_module.das"
@@ -53,12 +53,23 @@ file(GLOB DAS_ZEPHYR_FUNC_SRCS CONFIGURE_DEPENDS
 	"${STMRENODE_BINDS}/zephyr_das.func_*.cpp"
 )
 
+set(ZEPHYR_DAS_CPP "${STMRENODE_BINDS}/zephyr_das.cpp")
+set(ZEPHYR_DAS_STUBS "${STMRENODE_BINDS}/zephyr_host_stubs.gen.cpp")
+if(NOT EXISTS "${ZEPHYR_DAS_CPP}" OR NOT EXISTS "${ZEPHYR_DAS_STUBS}")
+	message(FATAL_ERROR
+		"Generated bindings missing in ${STMRENODE_BINDS}.\n"
+		"Run: daslang ${CMAKE_CURRENT_SOURCE_DIR}/bind_zephyr.das\n"
+		"(requires a prior west build so syscall_list.h exists)")
+endif()
+
 add_library(zephyr_das SHARED
-	"${STMRENODE_BINDS}/zephyr_das.main.cpp"
-	"${STMRENODE_BINDS}/zephyr_das.cpp"
-	"${STMRENODE_BINDS}/zephyr_host_stubs.gen.cpp"
+	"${ZEPHYR_DAS_CPP}"
+	"${CMAKE_CURRENT_SOURCE_DIR}/zephyr_das.main.cpp"
+	"${ZEPHYR_DAS_STUBS}"
 	${DAS_ZEPHYR_FUNC_SRCS}
 )
+
+target_include_directories(zephyr_das PRIVATE "${STMRENODE_BINDS}")
 target_link_libraries(zephyr_das PRIVATE DAS::libDaScriptDyn)
 target_compile_features(zephyr_das PRIVATE cxx_std_17)
 # DAS is built with -fno-rtti. A plugin compiled with RTTI references

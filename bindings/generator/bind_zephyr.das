@@ -44,12 +44,24 @@ def read_lines(path : string) : array<string> {
 def find_repo_root : string {
     var here = get_full_file_name("bind_zephyr.das")
     if (!stat(here).is_valid) {
-        here = get_full_file_name("bind_gen/bind_zephyr.das")
+        here = get_full_file_name("bindings/generator/bind_zephyr.das")
     }
     if (!stat(here).is_valid) {
         panic("cannot locate bind_zephyr.das")
     }
-    return dir_name(dir_name(here))
+    var dir = dir_name(here)
+    while (stat(dir).is_valid) {
+        if (stat("{dir}/zephyr").is_valid && stat("{dir}/bindings/generator").is_valid) {
+            return dir
+        }
+        let parent = dir_name(dir)
+        if (parent == dir) {
+            break
+        }
+        dir = parent
+    }
+    panic("cannot locate zephyrDas repo root from {here}")
+    return ""
 }
 
 def is_zephyr_sdk(path : string) {
@@ -178,7 +190,7 @@ class ZephyrBind : CppGenBind {
         // non-static functions from Zephyr (not bind_gen extras).
         let loc = clang_getCursorLocationFileName(c)
         let sc = clang_Cursor_getStorageClass(c)
-        if (sc != CX_StorageClass.Static && !(loc |> starts_with("{repo_root}/bind_gen/"))) {
+        if (sc != CX_StorageClass.Static && !(loc |> starts_with("{repo_root}/bindings/generator/"))) {
             stub_needed[function_name] = true
         }
         bound_func_names[function_name] = true
@@ -199,7 +211,7 @@ class ZephyrBind : CppGenBind {
         if (fname |> starts_with("{repo_root}/build/zephyr/")) {
             return false
         }
-        if (fname |> starts_with("{repo_root}/bind_gen/")) {
+        if (fname |> starts_with("{repo_root}/bindings/generator/")) {
             return false
         }
         if (fname |> starts_with(bind_root)) {
@@ -237,7 +249,7 @@ def write_umbrella(bind_root : string; headers : array<string>) {
         text += "#include <{h}>\n"
     }
     text += "#include \"extras.h\"\n"
-    fwrite("{bind_root}/../bindings/zephyr_api.h", text)
+    fwrite("{bind_root}/../generated/zephyr_api.h", text)
 }
 
 def write_macro_constants(root, bind_root : string; headers : array<string>) {
@@ -278,7 +290,7 @@ def write_macro_constants(root, bind_root : string; headers : array<string>) {
             return true
         }
     }
-    fwrite("{bind_root}/../bindings/zephyr_das.const.inc", text)
+    fwrite("{bind_root}/../generated/zephyr_das.const.inc", text)
 }
 
 def clang_args(root, sdk, clang_res : string; inc_lines : array<string>) : array<string> {
@@ -297,7 +309,8 @@ def clang_args(root, sdk, clang_res : string; inc_lines : array<string>) : array
         "--sysroot={sdk}/gnu/arm-zephyr-eabi/arm-zephyr-eabi",
         "-resource-dir", clang_res,
         "-isystem", "{clang_res}/include",
-        "-I{root}/bind_gen"
+        "-I{root}/bindings/generator",
+        "-I{root}/bindings/generated"
     )
     for (line in inc_lines) {
         if (line |> starts_with("sys:")) {
@@ -328,8 +341,8 @@ def require_zephyr_generated(root : string) {
 [export]
 def main {
     let root = find_repo_root()
-    let bind_gen_dir = "{root}/bind_gen"
-    let bindings = "{root}/bindings"
+    let bind_gen_dir = "{root}/bindings/generator"
+    let bindings = "{root}/bindings/generated"
     require_zephyr_generated(root)
     let sdk = find_zephyr_sdk()
     let headers <- read_lines("{bind_gen_dir}/headers.txt")
@@ -338,7 +351,7 @@ def main {
     write_macro_constants(root, bind_gen_dir, headers)
     dir(bindings) $(name) {
         if (name |> starts_with("zephyr_das.func_") && name |> ends_with(".cpp")) {
-            remove("{bind_gen_dir}/{name}")
+            remove("{bindings}/{name}")
         }
     }
     var args <- clang_args(root, sdk, find_clang_resource_dir(), inc_lines)
